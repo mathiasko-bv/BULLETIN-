@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Bulletin de Trimestre</title>
+<style>
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #e0f7ff;
+    margin: 20px;
+}
+
+h1 { text-align: center; color: #1e3d7b; }
+
+label { display: block; margin: 8px 0; }
+
+input, select {
+    padding: 4px; margin-left: 5px; width: 60px;
+    border-radius: 4px; border: 1px solid #ccc;
+}
+
+button {
+    margin-top: 20px; padding: 10px 25px;
+    background-color: #1e3d7b; color: white; border: none;
+    border-radius: 6px; cursor: pointer; font-weight: bold;
+}
+button:hover { background-color: #3a5bbf; }
+
+#bulletinDisplay {
+    display: none; margin-top: 25px; padding: 25px;
+    width: 750px; background-color: #ffffff;
+    border-radius: 12px; border: 2px solid #1e3d7b;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+}
+
+#bulletinDisplay h2 {
+    text-align: center; color: #1e3d7b; text-decoration: underline; margin-bottom: 20px;
+}
+
+table { width: 100%; border-collapse: collapse; }
+th, td { border: 1px solid #1e3d7b; padding: 8px; text-align: center; }
+th { background-color: #1e3d7b; color: white; }
+tr:nth-child(even) { background-color: #e6f0ff; }
+
+.signature { margin-top: 25px; text-align: right; font-style: italic; font-size: 1.1em; color: #1e3d7b; }
+.mention { margin-top: 15px; font-size: 1.2em; font-weight: bold; color: #1e3d7b; text-align: center; }
+.moyenne-generale { margin-top: 15px; font-size: 1.2em; font-weight: bold; text-align: center; color: #1e3d7b; }
+.info { display: flex; justify-content: space-between; margin-top: 15px; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h1>Générateur de Bulletin de Trimestre</h1>
+
+<label>Nom de l'élève : <input type="text" id="nomEleve"></label>
+<label>Établissement : <input type="text" id="etablissement"></label>
+<label>Année scolaire : <input type="text" id="annee"></label>
+
+<label>Classe :
+  <select id="classe">
+    <option value="D">Terminale D</option>
+    <option value="A4">Terminale A4</option>
+  </select>
+</label>
+
+<div id="notesContainer"></div>
+
+<button onclick="genererBulletin()">Délivrer le bulletin</button>
+<button id="downloadBtn" style="display:none;">Télécharger le bulletin (PDF)</button>
+
+<div id="bulletinDisplay"></div>
+
+<!-- Librairies pour générer PDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+const matieres = {
+  "D": { "Maths":3, "Physique":3, "SVT":4, "Anglais":2, "Français":2, "Histoire-Géo":2, "Philosophie":2, "Sport":1 },
+  "A4": { "Philosophie":4, "SVT":1, "Allemand":2, "Anglais":3, "Français":3, "Histoire-Géo":3, "Maths":2, "Physique":2 }
+};
+
+function genererChamps() {
+  const container = document.getElementById("notesContainer");
+  container.innerHTML = "<h3>Remplir les notes (0-20)</h3>";
+  const classe = document.getElementById("classe").value;
+  for (let matiere in matieres[classe]) {
+    container.innerHTML += `<label>${matiere} : 
+        Interro <input type="number" id="${matiere}_I" min="0" max="20"> 
+        Devoir <input type="number" id="${matiere}_D" min="0" max="20"> 
+        Composition <input type="number" id="${matiere}_C" min="0" max="20">
+    </label>`;
+  }
+}
+document.getElementById("classe").addEventListener("change", genererChamps);
+window.onload = genererChamps;
+
+function calculerMention(moy) {
+    if (moy >= 16) return "Très Bien";
+    else if (moy >= 14) return "Bien";
+    else if (moy >= 12) return "Assez Bien";
+    else if (moy >= 10) return "Passable";
+    else return "Insuffisant";
+}
+
+function genererBulletin() {
+  const classe = document.getElementById("classe").value;
+  let totalPoints = 0;
+  let totalCoeff = 0;
+  let rows = "";
+
+  for (let matiere in matieres[classe]) {
+    const noteI = parseFloat(document.getElementById(`${matiere}_I`).value) || 0;
+    const noteD = parseFloat(document.getElementById(`${matiere}_D`).value) || 0;
+    const noteC = parseFloat(document.getElementById(`${matiere}_C`).value) || 0;
+
+    const moyenneMatiere = (noteI + noteD + noteC) / 3;
+    const coeff = matieres[classe][matiere];
+
+    totalPoints += moyenneMatiere * coeff;
+    totalCoeff += coeff;
+
+    rows += `<tr>
+      <td>${matiere}</td>
+      <td>${noteI.toFixed(1)}</td>
+      <td>${noteD.toFixed(1)}</td>
+      <td>${noteC.toFixed(1)}</td>
+      <td>${moyenneMatiere.toFixed(2)}</td>
+    </tr>`;
+  }
+
+  const moyenneGenerale = (totalPoints / totalCoeff).toFixed(2);
+  const mention = calculerMention(moyenneGenerale);
+
+  const bulletinHTML = `
+    <h2>Bulletin de Trimestre</h2>
+    <div class="info">
+      <span><strong>Élève :</strong> ${document.getElementById("nomEleve").value}</span>
+      <span><strong>Établissement :</strong> ${document.getElementById("etablissement").value}</span>
+      <span><strong>Année :</strong> ${document.getElementById("annee").value}</span>
+    </div>
+    <table>
+      <tr>
+        <th>Matière</th>
+        <th>Interrogation</th>
+        <th>Devoir</th>
+        <th>Composition</th>
+        <th>Moyenne</th>
+      </tr>
+      ${rows}
+    </table>
+    <div class="moyenne-generale">Moyenne Générale : ${moyenneGenerale}</div>
+    <div class="mention">Mention : ${mention}</div>
+    <div class="signature">Signé : Rio</div>
+  `;
+  const display = document.getElementById("bulletinDisplay");
+  display.style.display = "block";
+  display.innerHTML = bulletinHTML;
+
+  document.getElementById("downloadBtn").style.display = "inline-block";
+}
+
+// Télécharger en PDF
+document.getElementById("downloadBtn").addEventListener("click", () => {
+  const { jsPDF } = window.jspdf;
+  const bulletin = document.getElementById("bulletinDisplay");
+  html2canvas(bulletin).then(canvas => {
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'pt', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save('Bulletin.pdf');
+  });
+});
+</script>
+
+</body>
+</html>
